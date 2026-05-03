@@ -4,121 +4,147 @@ import json
 import os
 
 # Configurazione Pagina
-st.set_page_config(page_title="Cro Magnon Golf League", page_icon="⛳", layout="centered")
+st.set_page_config(page_title="Cro Magnon Manager", page_icon="⛳", layout="centered")
 
-# --- STILE CSS PERSONALIZZATO ---
+# --- STILE CSS ---
 st.markdown("""
     <style>
-    .main { background-color: #f0f2f6; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #e67e22; color: white; }
-    h1 { color: #1a242f; text-align: center; font-family: 'Georgia'; }
+    .stCheckbox { background-color: #ffffff; padding: 10px; border-radius: 5px; margin-bottom: 5px; border: 1px solid #ddd; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #e67e22; color: white; font-weight: bold; }
+    h1, h2, h3 { color: #1a242f; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⛳ CRO MAGNON GOLF LEAGUE")
-
-# --- FUNZIONI DATABASE ---
 DB_FILE = "golf_db.json"
 
 def carica_dati():
     if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(DB_FILE, "r") as f:
+                return json.load(f)
+        except: return []
     return []
 
 def salva_dati(lista):
     with open(DB_FILE, "w") as f:
         json.dump(lista, f, indent=4)
 
-# Inizializzazione sessione
-if 'giocatori' not in st.session_state:
-    st.session_state.giocatori = carica_dati()
+if 'anagrafica' not in st.session_state:
+    st.session_state.anagrafica = carica_dati()
 
-# --- SIDEBAR: GESTIONE GIOCATORI ---
-with st.sidebar:
-    st.header("Gestione Club")
-    nuovo_nome = st.text_input("Nome Giocatore")
-    nuovo_hcp = st.number_input("HCP Iniziale", min_value=0, max_value=54, step=1)
-    
-    if st.button("➕ Aggiungi Giocatore"):
-        if nuovo_nome:
-            st.session_state.giocatori.append({
-                "nome": nuovo_nome, 
-                "hcp": nuovo_hcp, 
-                "punti": 0, 
-                "nuovo_hcp": nuovo_hcp
-            })
-            salva_dati(st.session_state.giocatori)
-            st.success(f"{nuovo_nome} aggiunto!")
+st.title("⛳ CRO MAGNON GOLF LEAGUE")
 
-    if st.button("🗑️ Reset Classifica"):
-        for g in st.session_state.giocatori:
-            g['punti'] = 0
-            g['nuovo_hcp'] = g['hcp']
-        st.rerun()
+# --- TAB NELL'INTERFACCIA ---
+tab1, tab2 = st.tabs(["🎮 Gara del Giorno", "👥 Gestione Giocatori"])
 
-# --- MAIN: GARA DEL GIORNO ---
-col1, col2 = st.columns(2)
-with col1:
-    tipo_gara = st.radio("Tipo di Gara", ["18 Buche", "9 Buche"])
-    target = 36 if tipo_gara == "18 Buche" else 18
-
-st.divider()
-
-# --- INSERIMENTO PUNTI ---
-st.subheader("📝 Inserimento Punteggi")
-for g in st.session_state.giocatori:
-    cols = st.columns([3, 2])
-    with cols[0]:
-        st.write(f"**{g['nome']}** (HCP: {g['hcp']})")
-    with cols[1]:
-        # Usiamo un text_input per gestire anche "NC"
-        punti_input = st.text_input(f"Punti", key=f"p_{g['nome']}", placeholder="0 o NC")
+# --- TAB 2: GESTIONE ANAGRAFICA ---
+with tab2:
+    st.subheader("Registra nuovi soci")
+    with st.form("nuovo_giocatore", clear_on_submit=True):
+        col_n, col_h = st.columns([2, 1])
+        nome = col_n.text_input("Nome e Cognome")
+        hcp = col_h.number_input("HCP attuale", 0, 54, 36)
+        submit = st.form_submit_button("Aggiungi all'Anagrafica")
         
-        if punti_input.upper() == "NC":
-            g['punti'] = -1
-            g['nuovo_hcp'] = g['hcp']
-        elif punti_input.isdigit():
-            p = int(punti_input)
-            g['punti'] = p
-            calo = (p - target) // 2 if p > target else 0
-            g['nuovo_hcp'] = g['hcp'] - calo
+        if submit and nome:
+            if not any(g['nome'].lower() == nome.lower() for g in st.session_state.anagrafica):
+                st.session_state.anagrafica.append({"nome": nome, "hcp": hcp})
+                salva_dati(st.session_state.anagrafica)
+                st.success(f"{nome} registrato!")
+                st.rerun()
+            else:
+                st.error("Giocatore già presente.")
 
-if st.button("⛳ CALCOLA E AGGIORNA CLASSIFICA"):
-    salva_dati(st.session_state.giocatori)
-    st.balloons()
+    st.divider()
+    st.subheader("Soci Registrati")
+    if st.session_state.anagrafica:
+        for i, g in enumerate(st.session_state.anagrafica):
+            c1, c2 = st.columns([3, 1])
+            c1.write(f"**{g['nome']}** (HCP: {g['hcp']})")
+            if c2.button("Elimina", key=f"del_{i}"):
+                st.session_state.anagrafica.pop(i)
+                salva_dati(st.session_state.anagrafica)
+                st.rerun()
+    else:
+        st.info("L'anagrafica è vuota.")
 
-st.divider()
+# --- TAB 1: GARA DEL GIORNO ---
+with tab1:
+    if not st.session_state.anagrafica:
+        st.warning("Vai nel tab 'Gestione Giocatori' per aggiungere i soci.")
+    else:
+        st.subheader("1. Chi gioca oggi?")
+        presenti = []
+        
+        # Selezione rapida
+        col_sel1, col_sel2 = st.columns(2)
+        if col_sel1.button("Seleziona Tutti"):
+            st.session_state.all_selected = True
+        if col_sel2.button("Deseleziona Tutti"):
+            st.session_state.all_selected = False
 
-# --- CLASSIFICA FINALE ---
-st.subheader("🏆 Classifica Live")
-if st.session_state.giocatori:
-    # Creazione DataFrame per visualizzazione
-    df = pd.DataFrame(st.session_state.giocatori)
-    
-    # Ordiniamo
-    df = df.sort_values(by="punti", ascending=False).reset_index(drop=True)
-    
-    # Formattazione Classifica e Medaglie
-    def formatta_pos(index, punti):
-        if punti <= 0: return "-"
-        if index == 0: return "🥇 1° POSTO"
-        if index == 1: return "🥈 2° POSTO"
-        if index == 2: return "🥉 3° POSTO"
-        return f"{index + 1}° POSTO"
+        # Lista di selezione
+        for g in st.session_state.anagrafica:
+            is_presente = st.checkbox(f"{g['nome']} (HCP {g['hcp']})", key=f"check_{g['nome']}")
+            if is_presente:
+                presenti.append(g)
 
-    df['Classifica'] = [formatta_pos(i, p) for i, p in enumerate(df['punti'])]
-    df['Punti'] = df['punti'].apply(lambda x: "NC" if x == -1 else x)
-    
-    # Rinominiano le colonne per l'utente
-    df_display = df[['Classifica', 'nome', 'hcp', 'Punti', 'nuovo_hcp']].copy()
-    df_display.columns = ['Posizione', 'Giocatore', 'HCP Partenza', 'Punti Gara', 'Nuovo HCP']
-    
-    st.table(df_display)
+        if presenti:
+            st.divider()
+            st.subheader("2. Impostazioni Gara")
+            tipo_gara = st.radio("Distanza", ["18 Buche", "9 Buche"], horizontal=True)
+            target = 36 if tipo_gara == "18 Buche" else 18
+            
+            st.subheader("3. Inserimento Score")
+            risultati_gara = []
+            
+            for p in presenti:
+                c_n, c_s = st.columns([3, 1])
+                c_n.write(f"**{p['nome']}**")
+                score = c_s.text_input("Punti", key=f"score_{p['nome']}", placeholder="NC")
+                
+                # Calcolo al volo
+                punti_int = 0
+                nuovo_hcp = p['hcp']
+                if score.upper() == "NC":
+                    punti_int = -1
+                elif score.isdigit():
+                    punti_int = int(score)
+                    calo = (punti_int - target) // 2 if punti_int > target else 0
+                    nuovo_hcp = p['hcp'] - calo
+                
+                risultati_gara.append({
+                    "nome": p['nome'],
+                    "hcp_p": p['hcp'],
+                    "punti": punti_int,
+                    "hcp_f": nuovo_hcp
+                })
 
-    # Pulsante per salvare i nuovi HCP per la prossima volta
-    if st.button("💾 Conferma HCP per Sabato prossimo"):
-        for g in st.session_state.giocatori:
-            g['hcp'] = g['nuovo_hcp']
-        salva_dati(st.session_state.giocatori)
-        st.success("HCP di partenza aggiornati per la prossima gara!")
+            if st.button("🏆 GENERA CLASSIFICA"):
+                st.balloons()
+                df = pd.DataFrame(risultati_gara)
+                df = df.sort_values(by="punti", ascending=False).reset_index(drop=True)
+                
+                # Formattazione per la tabella
+                def format_pos(i, p):
+                    if p < 0: return "-"
+                    return f"{i+1}° POSTO"
+                
+                df['Posizione'] = [format_pos(i, p) for i, p in enumerate(df['punti'])]
+                df['Punti Gara'] = df['punti'].apply(lambda x: "NC" if x == -1 else x)
+                
+                st.subheader("📊 Risultati Finali")
+                st.table(df[['Posizione', 'nome', 'hcp_p', 'Punti Gara', 'hcp_f']].rename(columns={
+                    'nome': 'Giocatore', 'hcp_p': 'HCP Partenza', 'hcp_f': 'Nuovo HCP'
+                }))
+
+                if st.button("💾 AGGIORNA HCP NELL'ANAGRAFICA"):
+                    # Aggiorna l'hcp nell'anagrafica principale solo per chi ha giocato
+                    for res in risultati_gara:
+                        for soci in st.session_state.anagrafica:
+                            if soci['nome'] == res['nome']:
+                                soci['hcp'] = res['hcp_f']
+                    salva_dati(st.session_state.anagrafica)
+                    st.success("HCP aggiornati per la prossima gara!")
+        else:
+            st.info("Seleziona almeno un giocatore per iniziare la gara.")
