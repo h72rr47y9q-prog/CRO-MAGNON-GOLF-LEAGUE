@@ -16,7 +16,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-DB_FILE = "golf_data_v9.json"
+DB_FILE = "golf_data_v10.json"
 
 def carica_dati():
     if os.path.exists(DB_FILE):
@@ -36,7 +36,7 @@ def salva_dati(dati):
 if 'db' not in st.session_state:
     st.session_state.db = carica_dati()
 
-# Inizializzazione HCP temporanei per la creazione del campo
+# Inizializziamo sempre 18 posizioni per gli HCP, così non andiamo in errore
 if 'hcp_temp' not in st.session_state:
     st.session_state.hcp_temp = {i: i for i in range(1, 19)}
 
@@ -45,42 +45,50 @@ dati = st.session_state.db
 st.title("⛳ CRO MAGNON GOLF")
 tab1, tab2, tab3 = st.tabs(["🎮 Gara", "👥 Soci", "🏗️ Campi"])
 
-# --- TAB 3: CAMPI (CON HCP DINAMICI) ---
+# --- TAB 3: CAMPI ---
 with tab3:
     st.header("Configura Nuovo Campo")
-    tipo_c = st.radio("Numero buche:", [9, 18], horizontal=True)
+    tipo_c = st.radio("Numero buche del campo:", [9, 18], horizontal=True)
     
     with st.form("form_campo"):
         nome_c = st.text_input("Nome Golf Club")
         par_lista = []
         hcp_lista = []
         
-        st.write("Assegna PAR e HCP (ogni numero HCP è unico):")
+        st.write("Inserisci PAR e HCP (ogni numero HCP da 1 a 18 è unico):")
+        
+        # Pool totale di HCP sempre da 1 a 18
+        POOL_HCP = list(range(1, 19))
         
         for b in range(1, tipo_c + 1):
             col_b, col_p, col_h = st.columns([1, 2, 3])
             col_b.markdown(f"**B{b}**")
             
-            # PAR con selectbox
+            # PAR
             p_val = col_p.selectbox(f"Par B{b}", [3, 4, 5], index=1, key=f"setup_p_{b}", label_visibility="collapsed")
             par_lista.append(p_val)
             
-            # HCP con logica di sparizione
-            # Calcoliamo quali hcp sono stati usati nelle ALTRE buche
+            # LOGICA HCP: escludiamo quelli usati nelle ALTRE buche di questo form
             usati_altrove = [st.session_state.hcp_temp[i] for i in range(1, tipo_c + 1) if i != b]
-            opzioni_hcp = [i for i in range(1, 19) if i not in usati_altrove]
+            opzioni_disponibili = [n for n in POOL_HCP if n not in usati_altrove]
             
-            # Se il valore attuale non è tra le opzioni (per cambio tipo campo), resettiamo
-            if st.session_state.hcp_temp[b] not in opzioni_hcp:
-                st.session_state.hcp_temp[b] = opzioni_hcp[0]
+            # Ordiniamo numericamente le opzioni per evitare 1, 10, 11...
+            opzioni_disponibili.sort()
+
+            # Gestione del valore di default se non è più disponibile
+            if st.session_state.hcp_temp[b] not in opzioni_disponibili:
+                st.session_state.hcp_temp[b] = opzioni_disponibili[0]
+            
+            idx_default = opzioni_disponibili.index(st.session_state.hcp_temp[b])
             
             h_val = col_h.selectbox(
                 f"HCP B{b}", 
-                options=opzioni_hcp,
-                index=opzioni_hcp.index(st.session_state.hcp_temp[b]),
+                options=opzioni_disponibili,
+                index=idx_default,
                 key=f"setup_h_{b}",
                 label_visibility="collapsed"
             )
+            # Aggiorniamo lo stato temporaneo
             st.session_state.hcp_temp[b] = h_val
             hcp_lista.append(h_val)
 
@@ -88,7 +96,7 @@ with tab3:
             if nome_c:
                 dati["campi"].append({"nome": nome_c, "tipo": tipo_c, "par": par_lista, "hcp_buche": hcp_lista})
                 salva_dati(dati)
-                st.success(f"Campo {nome_c} salvato correttamente!")
+                st.success(f"Campo '{nome_c}' salvato!")
                 st.rerun()
 
 # --- TAB 2: GIOCATORI ---
