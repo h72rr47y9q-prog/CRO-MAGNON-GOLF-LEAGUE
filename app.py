@@ -6,62 +6,34 @@ import os
 # Configurazione Pagina
 st.set_page_config(page_title="Cro Magnon Manager", page_icon="⛳", layout="wide")
 
-# --- CSS AVANZATO PER EFFETTO SCORECARD ---
+# --- CSS OTTIMIZZATO PER MOBILE ---
 st.markdown("""
     <style>
-    /* Sfondo e font generale */
-    .stApp { background-color: #e8ecef !important; color: #1a242f !important; }
-    
-    /* Stile celle Scorecard */
-    .score-cell {
-        border: 1px solid #000 !important;
-        background-color: #ffffff;
-        text-align: center;
-        padding: 5px;
-        font-weight: bold;
-    }
-    .header-cell {
-        background-color: #27ae60 !important;
-        color: white !important;
-        border: 1px solid #000 !important;
-        text-align: center;
-        font-weight: bold;
-        padding: 5px;
-    }
-    .label-cell {
-        background-color: #f1f1f1 !important;
-        border: 1px solid #000 !important;
-        font-weight: bold;
-        padding: 5px;
-    }
-
-    /* Rimpiccioliamo gli input per farli stare nella griglia */
-    div[data-testid="stNumberInput"] div[data-baseweb="input"] {
-        background-color: transparent !important;
-        border: none !important;
-    }
-    div[data-testid="stNumberInput"] input {
-        text-align: center !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        padding: 0px !important;
-    }
-    
-    /* Nascondiamo le etichette degli input nella griglia per pulizia */
-    div[data-testid="stNumberInput"] label { display: none !important; }
-
-    /* Bottoni */
+    .stApp { background-color: #f4f7f6 !important; color: #1a242f !important; }
+    .stMarkdown p, label, .stSelectbox label { color: #1a242f !important; font-weight: 600 !important; }
+    /* Bottone Classifica */
     .stButton>button { 
         background-color: #27ae60 !important; 
         color: white !important; 
-        border-radius: 4px; 
+        border-radius: 8px; 
         font-weight: bold; 
-        border: 2px solid #1e8449;
+        border: none; 
+        height: 3.5em; 
+        margin-top: 20px;
     }
+    /* Stile per i box dei giocatori */
+    .stExpander { 
+        background-color: white !important; 
+        border: 1px solid #d1d1d1 !important; 
+        border-radius: 12px !important; 
+        margin-bottom: 15px !important; 
+    }
+    /* Riduciamo lo spazio tra le selectbox */
+    div[data-testid="column"] { padding: 0px 5px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-DB_FILE = "golf_data_v7.json"
+DB_FILE = "golf_data_v8.json"
 
 def carica_dati():
     if os.path.exists(DB_FILE):
@@ -83,165 +55,111 @@ if 'db' not in st.session_state:
 
 dati = st.session_state.db
 
-st.title("⛳ CRO MAGNON GOLF LEAGUE")
-tab1, tab2, tab3 = st.tabs(["🎮 Gara del Giorno", "👥 Giocatori", "🏗️ Configura Campi"])
+st.title("⛳ CRO MAGNON GOLF")
+tab1, tab2, tab3 = st.tabs(["🎮 Gara", "👥 Soci", "🏗️ Campi"])
 
-# --- TAB 3: CONFIGURAZIONE CAMPI (LOOK SCORECARD) ---
+# --- TAB 3: CAMPI ---
 with tab3:
-    st.header("Configurazione Nuovo Campo")
-    tipo_c = st.radio("Dimensione:", [9, 18], horizontal=True)
-    
-    with st.container():
-        st.markdown("### Anteprima Cartellino")
-        nome_c = st.text_input("Nome del Golf Club")
+    st.header("Nuovo Campo")
+    tipo_c = st.radio("Buche:", [9, 18], horizontal=True)
+    with st.form("form_campo"):
+        nome_c = st.text_input("Nome Golf Club")
+        par_lista, hcp_lista = [], []
+        # Qui usiamo un layout compatto per inserire i dati del campo
+        for b in range(1, tipo_c + 1):
+            cols = st.columns([1, 2, 2])
+            cols[0].markdown(f"**B{b}**")
+            par_lista.append(cols[1].selectbox(f"Par B{b}", [3, 4, 5], index=1, key=f"p_{b}", label_visibility="collapsed"))
+            hcp_lista.append(cols[2].number_input(f"HCP B{b}", 1, 18, b, key=f"h_{b}", label_visibility="collapsed"))
         
-        # Header buche
-        cols = st.columns([2] + [1] * 9 + [1.5]) # Prima colonna larga, poi 9 strette, poi totale
-        cols[0].markdown("<div class='header-cell'>BUCA</div>", unsafe_allow_html=True)
-        for i in range(1, 10):
-            cols[i].markdown(f"<div class='header-cell'>{i}</div>", unsafe_allow_html=True)
-        cols[10].markdown("<div class='header-cell'>OUT</div>", unsafe_allow_html=True)
-
-        # Riga PAR (Prime 9)
-        p_row1 = st.columns([2] + [1] * 9 + [1.5])
-        p_row1[0].markdown("<div class='label-cell'>PAR</div>", unsafe_allow_html=True)
-        par_lista = []
-        for i in range(9):
-            with p_row1[i+1]:
-                par_lista.append(st.number_input("", 3, 5, 4, key=f"cp_{i}"))
-        p_row1[10].markdown(f"<div class='score-cell'>{sum(par_lista[:9])}</div>", unsafe_allow_html=True)
-
-        # Riga HCP (Prime 9)
-        h_row1 = st.columns([2] + [1] * 9 + [1.5])
-        h_row1[0].markdown("<div class='label-cell'>HCP</div>", unsafe_allow_html=True)
-        hcp_lista = []
-        for i in range(9):
-            with h_row1[i+1]:
-                hcp_lista.append(st.number_input("", 1, 18, i+1, key=f"ch_{i}"))
-        h_row1[10].markdown("<div class='score-cell'>-</div>", unsafe_allow_html=True)
-
-        # Se 18 buche, aggiungiamo la seconda parte
-        if tipo_c == 18:
-            st.write("")
-            cols2 = st.columns([2] + [1] * 9 + [1.5])
-            cols2[0].markdown("<div class='header-cell'>BUCA</div>", unsafe_allow_html=True)
-            for i in range(10, 19):
-                cols2[i-9].markdown(f"<div class='header-cell'>{i}</div>", unsafe_allow_html=True)
-            cols2[10].markdown("<div class='header-cell'>IN</div>", unsafe_allow_html=True)
-
-            p_row2 = st.columns([2] + [1] * 9 + [1.5])
-            p_row2[0].markdown("<div class='label-cell'>PAR</div>", unsafe_allow_html=True)
-            for i in range(9, 18):
-                with p_row2[i-8]:
-                    par_lista.append(st.number_input("", 3, 5, 4, key=f"cp_{i}"))
-            p_row2[10].markdown(f"<div class='score-cell'>{sum(par_lista[9:])}</div>", unsafe_allow_html=True)
-
-            h_row2 = st.columns([2] + [1] * 9 + [1.5])
-            h_row2[0].markdown("<div class='label-cell'>HCP</div>", unsafe_allow_html=True)
-            for i in range(9, 18):
-                with h_row2[i-8]:
-                    hcp_lista.append(st.number_input("", 1, 18, i+1, key=f"ch_{i}"))
-            h_row2[10].markdown("<div class='score-cell'>-</div>", unsafe_allow_html=True)
-
-        st.write("")
-        if st.button("💾 SALVA CONFIGURAZIONE CAMPO"):
+        if st.form_submit_button("Salva Campo"):
             if nome_c:
                 dati["campi"].append({"nome": nome_c, "tipo": tipo_c, "par": par_lista, "hcp_buche": hcp_lista})
                 salva_dati(dati)
-                st.success("Campo salvato!")
                 st.rerun()
 
-# --- TAB 1: GARA DEL GIORNO (SCORECARD REALE) ---
+# --- TAB 2: GIOCATORI ---
+with tab2:
+    st.header("Anagrafica")
+    with st.form("add_p"):
+        n = st.text_input("Nome Giocatore")
+        h = st.number_input("HCP", 0, 54, 36)
+        if st.form_submit_button("Aggiungi"):
+            if n:
+                dati["giocatori"].append({"nome": n, "hcp": h})
+                salva_dati(dati)
+                st.rerun()
+    for idx, g in enumerate(dati["giocatori"]):
+        col1, col2 = st.columns([3, 1])
+        col1.write(f"👤 {g['nome']} (HCP {g['hcp']})")
+        if col2.button("X", key=f"del_g_{idx}"):
+            dati["giocatori"].pop(idx)
+            salva_dati(dati)
+            st.rerun()
+
+# --- TAB 1: GARA (MOBILE FRIENDLY CON SELECTBOX) ---
 with tab1:
     if not dati["campi"]:
-        st.info("Crea un campo nel tab Configura Campi.")
+        st.info("Configura un campo per iniziare.")
     else:
-        n_campo = st.selectbox("Seleziona campo:", [c['nome'] for c in dati["campi"]])
-        campo = next(c for c in dati["campi"] if c['nome'] == n_campo)
+        campo_scelto = st.selectbox("Dove si gioca?", [c['nome'] for c in dati["campi"]])
+        campo = next(c for c in dati["campi"] if c['nome'] == campo_scelto)
         
-        st.subheader("Giocatori al tee di partenza")
-        presenti = [g for g in dati["giocatori"] if st.checkbox(f"{g['nome']} (HCP {g['hcp']})", key=f"p_{g['nome']}")]
+        st.subheader("Chi partecipa?")
+        presenti = [g for g in dati["giocatori"] if st.checkbox(f"{g['nome']}", key=f"pres_{g['nome']}")]
 
         if presenti:
             st.divider()
             risultati_gara = []
 
             for p in presenti:
-                st.markdown(f"### 📋 Cartellino: {p['nome']}")
-                metodo = st.radio(f"Modalità {p['nome']}", ["Scorecard", "Manuale"], horizontal=True, key=f"m_{p['nome']}")
-                
-                punti_finali = 0
-                
-                if metodo == "Manuale":
-                    punti_finali = st.number_input("Punti Stableford:", 0, 60, 0, key=f"man_{p['nome']}")
-                else:
-                    # --- DISEGNO SCORECARD ---
-                    # Header
-                    h_cols = st.columns([2] + [1]*9 + [1.5])
-                    h_cols[0].markdown("<div class='header-cell'>BUCA</div>", unsafe_allow_html=True)
-                    for i in range(1, 10): h_cols[i].markdown(f"<div class='header-cell'>{i}</div>", unsafe_allow_html=True)
-                    h_cols[10].markdown("<div class='header-cell'>OUT</div>", unsafe_allow_html=True)
+                with st.expander(f"📝 {p['nome']} (HCP {p['hcp']})", expanded=False):
+                    metodo = st.radio(f"Input per {p['nome']}", ["Tendina buca per buca", "Punti totali manuali"], horizontal=True, key=f"m_{p['nome']}")
                     
-                    # Riga Colpi (Prime 9)
-                    s_cols1 = st.columns([2] + [1]*9 + [1.5])
-                    s_cols1[0].markdown("<div class='label-cell'>COLPI</div>", unsafe_allow_html=True)
-                    colpi = []
-                    for i in range(9):
-                        with s_cols1[i+1]:
-                            colpi.append(st.number_input("", 0, 15, 0, key=f"score_{p['nome']}_{i}"))
-                    s_cols1[10].markdown(f"<div class='score-cell'>{sum(colpi[:9])}</div>", unsafe_allow_html=True)
-
-                    if campo["tipo"] == 18:
-                        # Header (10-18)
-                        h_cols2 = st.columns([2] + [1]*9 + [1.5])
-                        h_cols2[0].markdown("<div class='header-cell'>BUCA</div>", unsafe_allow_html=True)
-                        for i in range(10, 19): h_cols2[i-9].markdown(f"<div class='header-cell'>{i}</div>", unsafe_allow_html=True)
-                        h_cols2[10].markdown("<div class='header-cell'>IN</div>", unsafe_allow_html=True)
+                    punti_giocatore = 0
+                    
+                    if metodo == "Punti totali manuali":
+                        punti_giocatore = st.number_input("Inserisci Punti Stableford", 0, 60, 0, key=f"man_{p['nome']}")
+                    else:
+                        colpi_inseriti = []
+                        # Generiamo le tendine in un layout a 3 colonne per non allungare troppo la pagina
+                        for i in range(0, campo["tipo"], 3):
+                            cols = st.columns(3)
+                            for j in range(3):
+                                b_idx = i + j
+                                if b_idx < campo["tipo"]:
+                                    with cols[j]:
+                                        # Menu a tendina da 0 a 10 (0 significa buca non giocata o X)
+                                        valore = st.selectbox(
+                                            f"Buca {b_idx+1}", 
+                                            options=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
+                                            format_func=lambda x: f"B{b_idx+1}: {x}" if x > 0 else f"B{b_idx+1}: -",
+                                            key=f"sb_{p['nome']}_{b_idx}"
+                                        )
+                                        colpi_inseriti.append(valore)
                         
-                        # Riga Colpi (10-18)
-                        s_cols2 = st.columns([2] + [1]*9 + [1.5])
-                        s_cols2[0].markdown("<div class='label-cell'>COLPI</div>", unsafe_allow_html=True)
-                        for i in range(9, 18):
-                            with s_cols2[i-8]:
-                                colpi.append(st.number_input("", 0, 15, 0, key=f"score_{p['nome']}_{i}"))
-                        s_cols2[10].markdown(f"<div class='score-cell'>{sum(colpi[9:])}</div>", unsafe_allow_html=True)
+                        # Calcolo Stableford
+                        hcp_g = p['hcp']
+                        for idx in range(campo["tipo"]):
+                            l = colpi_inseriti[idx]
+                            if l > 0:
+                                par = campo['par'][idx]
+                                diff = campo['hcp_buche'][idx]
+                                ricevuti = (hcp_g // campo["tipo"]) + (1 if diff <= (hcp_g % campo["tipo"]) else 0)
+                                punti_giocatore += max(0, 2 + par - (l - ricevuti))
+                    
+                    st.write(f"**Punti totali: {int(punti_giocatore)}**")
+                    
+                    target = 36 if campo["tipo"] == 18 else 18
+                    calo = (punti_giocatore - target) // 2 if punti_giocatore > target else 0
+                    risultati_gara.append({
+                        "Giocatore": p['nome'], 
+                        "Punti": int(punti_giocatore), 
+                        "Nuovo HCP": int(p['hcp'] - calo)
+                    })
 
-                    # Calcolo Stableford
-                    hcp_g = p['hcp']
-                    for b_idx in range(campo["tipo"]):
-                        l = colpi[b_idx]
-                        if l > 0:
-                            par, diff = campo['par'][b_idx], campo['hcp_buche'][b_idx]
-                            ricevuti = (hcp_g // campo["tipo"]) + (1 if diff <= (hcp_g % campo["tipo"]) else 0)
-                            punti_finali += max(0, 2 + par - (l - ricevuti))
-                
-                st.success(f"Punti Stableford Totali: {int(punti_finali)}")
-                target = 36 if campo["tipo"] == 18 else 18
-                calo = (punti_finali - target) // 2 if punti_finali > target else 0
-                risultati_gara.append({"Giocatore": p['nome'], "HCP": p['hcp'], "Punti": int(punti_finali), "Nuovo HCP": int(p['hcp'] - calo)})
-                st.divider()
-
-            if st.button("🏆 CALCOLA CLASSIFICA"):
+            if st.button("🏆 VEDI CLASSIFICA"):
+                st.balloons()
                 df = pd.DataFrame(risultati_gara).sort_values(by="Punti", ascending=False).reset_index(drop=True)
                 df.insert(0, 'Pos', [f"{i+1}°" for i in range(len(df))])
                 st.table(df)
-
-# --- TAB 2: GIOCATORI (RIMASTO UGUALE) ---
-with tab2:
-    st.header("Anagrafica Soci")
-    with st.form("add_p"):
-        c1, c2 = st.columns([2, 1])
-        n = c1.text_input("Nome")
-        h = c2.number_input("HCP", 0, 54, 36)
-        if st.form_submit_button("Aggiungi Socio"):
-            if n:
-                dati["giocatori"].append({"nome": n, "hcp": h})
-                salva_dati(dati)
-                st.rerun()
-    for idx, g in enumerate(dati["giocatori"]):
-        col1, col2 = st.columns([4, 1])
-        col1.write(f"👤 {g['nome']} (HCP {g['hcp']})")
-        if col2.button("Elimina", key=f"del_g_{idx}"):
-            dati["giocatori"].pop(idx)
-            salva_dati(dati)
-            st.rerun()
